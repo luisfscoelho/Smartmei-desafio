@@ -1,3 +1,12 @@
+import { container } from 'tsyringe';
+import BookLoan from '../domain/infra/entities/BookLoan';
+
+import CreateBookService from '../domain/services/CreateBookService'
+import CreateUserService from '../domain/services/CreateUserService'
+import LendBookService from '../domain/services/LendBookService'
+import ReturnBookService from '../domain/services/ReturnBookService'
+import ShowUserByIdService from '../domain/services/ShowUserByIdService'
+
 interface IBook {
   id: string;
   title: string;
@@ -24,77 +33,131 @@ interface IUser {
   borrowedBooks: IBookLoan[];
 }
 
-const users = <IUser[]>[];
+interface ICreateUserArgs {
+  input: {
+    name: string;
+    email: string;
+  };
+}
+
+interface IAddBookToMyCollectionArgs {
+  loggedUserId: string,
+  input: {
+    title: string;
+    pages: number;
+  };
+}
+
+interface ILendBookArgs {
+  loggedUserId: string,
+  input: {
+    bookId: string;
+    toUserId: string;
+  };
+}
+
+interface IReturnBookArgs {
+  loggedUserId: string;
+  bookId: string;
+}
 
 const resolvers = {
-  Query: {
-    user: (_, args): IUser | undefined =>
-      users.find(user => user.id === args.id),
-  },
-  Mutation: {
-    createUser: (_, args): IUser => {
-      const newUser = {
-        id: String(Math.random()).substring(2),
-        name: args.input.name,
-        email: args.input.email,
-        createdAt: new Date(),
-        collection: [],
-        lentBooks: [],
-        borrowedBooks: [],
-      };
-
-      users.push(newUser);
-
-      return newUser;
+  BookLoan: {
+    fromUser(obj: BookLoan) {
+      return obj.fromUserId
     },
-    addBookToMyCollection: (_, args): IBook | undefined => {
-      const user = users.find(_user => _user.id === args.loggedUserId);
-      const id = String(Math.random()).substring(2);
+    toUser(obj: BookLoan) {
+      return obj.toUserId
+    },
+    lentAt(obj: BookLoan) {
+      return obj.createdAt
+    },
+  },
 
-      user?.collection.push({
-        id,
-        title: args.input.title,
+  Query: {
+  user: async (_: {}, args: { id: string }): Promise<IUser> => {
+    const showUserById = container.resolve(ShowUserByIdService);
+
+    const user = await showUserById.execute({ id: args.id });
+
+    console.log('user: ', user)
+
+    return {
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      createdAt: user.createdAt,
+      collection: user.collection,
+      lentBooks: user.lentBooks,
+      borrowedBooks: user.borrowedBooks,
+    }
+  }
+  },
+
+  Mutation: {
+    createUser: async (_: {}, args: ICreateUserArgs): Promise<IUser> => {
+      const createUser = container.resolve(CreateUserService);
+
+      const user = await createUser.execute(args.input);
+
+      return {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        createdAt: user.createdAt,
+        collection: user.collection,
+        lentBooks: user.lentBooks,
+        borrowedBooks: user.borrowedBooks,
+      };
+    },
+
+    addBookToMyCollection: async (_: {}, args: IAddBookToMyCollectionArgs): Promise<IBook> => {
+      const createBook = container.resolve(CreateBookService);
+
+      const book = await createBook.execute({
+        userId: args.loggedUserId,
         pages: args.input.pages,
-        createdAt: new Date(),
+        title: args.input.title,
       });
 
-      return user?.collection.find(book => book.id === id);
+      return book;
     },
-    lendBook: (_, args): IBookLoan => {
-      const fromUser = users.find(user => user.id === args.loggedUserId);
-      const toUser = users.find(user => user.id === args.input.toUserId);
-      const book = fromUser?.collection.find(
-        _book => _book.id === args.input.bookId,
-      );
 
-      const bookLoan = {
-        id: String(Math.random()).substring(2),
-        book,
-        fromUser: fromUser?.id,
-        toUser: toUser?.id,
-        lentAt: new Date(),
-        returnedAt: null,
+    lendBook: async (_: {}, args: ILendBookArgs): Promise<IBookLoan> => {
+      const lendBook = container.resolve(LendBookService);
+
+      const bookLoan = await lendBook.execute({
+        userId: args.loggedUserId,
+        bookId: args.input.bookId,
+        toUserId: args.input.toUserId,
+      });
+
+      return {
+        id: bookLoan.id,
+        book: bookLoan.book,
+        fromUser: bookLoan.fromUserId,
+        toUser: bookLoan.toUserId,
+        lentAt: bookLoan.createdAt,
+        returnedAt: bookLoan.returnedAt,
       };
-
-      fromUser?.lentBooks.push(bookLoan);
-      toUser?.lentBooks.push(bookLoan);
-
-      return bookLoan;
     },
-    returnBook: (_, args): IBookLoan => {
-      const fromUser = users.find(_user => _user.id === args.loggedUserId);
-      const bookLoaned = fromUser?.lentBooks.find(
-        book => book.id === args.bookId,
-      );
-      bookLoaned?.returnedAt = new Date();
 
-      const toUser = users.find(_user => _user.id === bookLoaned?.toUser);
-      const bookBorrowed = toUser?.borrowedBooks.find(
-        book => book.id === args.bookId,
-      );
-      bookBorrowed?.returnedAt = new Date();
+    returnBook: async (_: {}, args: IReturnBookArgs): Promise<IBookLoan> => {
+      const returnBook = container.resolve(ReturnBookService);
 
-      return bookLoaned;
+      const bookLoan = await returnBook.execute({
+        userId: args.loggedUserId,
+        bookId: args.bookId,
+      })
+
+      return {
+        id: bookLoan.id,
+        book: bookLoan.book,
+        fromUser: bookLoan.fromUserId,
+        toUser: bookLoan.toUserId,
+        lentAt: bookLoan.createdAt,
+        returnedAt: bookLoan.returnedAt,
+      };
     },
   },
 };
