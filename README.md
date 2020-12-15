@@ -6,7 +6,7 @@ API graphql para o dasafio da smart mei.
 
 ### Clone o projeto
 
-`git clone link-do-repositorio && cd gobarber`
+`git clone https://github.com/luisfscoelho/Smartmei-desafio.git && cd gobarber`
 
 ### Instale as dependências
 
@@ -32,4 +32,4 @@ docker run --name postgres \
 ## To Do
 
 - [ ] Passar em todos os testes
-- [ ] Corigir retono da query user
+- [ ] Corrigir retono da query user
