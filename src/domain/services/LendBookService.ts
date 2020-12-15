@@ -1,3 +1,4 @@
+import { ApolloError } from 'apollo-server';
 import { injectable, inject } from 'tsyringe';
 
 import BookLoan from '../infra/entities/BookLoan';
@@ -17,6 +18,12 @@ class LendBookService {
   ) {}
 
   public async execute({ userId, bookId, toUserId }: IRequest): Promise<BookLoan> {
+    const isBorrowed = await this.bookLoansRepository.findLoanByBookId(bookId);
+
+    if(isBorrowed) {
+      throw new ApolloError('Book was alredy lent', 'BOOKWASLENT');
+    }
+
     const bookLoan = await this.bookLoansRepository.create({
       fromUserId: userId,
       bookId,
