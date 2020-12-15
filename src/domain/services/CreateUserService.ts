@@ -17,11 +17,11 @@ class CreateUserService {
   ) {}
 
   public async execute(userData: IRequest): Promise<User> {
-    const userExists = this.usersRepository.findByEmail(userData.email);
+    // const userExists = this.usersRepository.findByEmail(userData.email);
 
-    if (userExists) {
-      throw new ApolloError('User alredy exixts', 'USERALREDYEXISTS')
-    }
+    // if (userExists) {
+    //   throw new ApolloError('User alredy exixts', 'USERALREDYEXISTS')
+    // }
 
     const user = await this.usersRepository.create(userData);
 
